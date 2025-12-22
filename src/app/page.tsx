@@ -1,65 +1,156 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useState, useMemo, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import type { Problem } from "@/lib/types"
+import { mockProblems } from "@/data/problems"
+import { ProblemTable } from "@/components/table"
+import { ProblemModal } from "@/components/problem-modal"
+import { Search, Plus, LogOut } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { validateSecretKey } from "@/lib/action"
+import { LoginForm } from "@/components/login"
+
+export default function AdminDashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [problems, setProblems] = useState<Problem[]>(mockProblems)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingProblem, setEditingProblem] = useState<Problem | null>(null)
+
+  const filteredProblems = useMemo(() => {
+    if (!searchQuery.trim()) return problems
+
+    const query = searchQuery.toLowerCase()
+    return problems.filter(
+      (problem) =>
+        problem.title.toLowerCase().includes(query) ||
+        problem.statement.toLowerCase().includes(query) ||
+        problem.framework.toLowerCase().includes(query),
+    )
+  }, [problems, searchQuery])
+
+  useEffect(() => {
+    const authStatus = sessionStorage.getItem("admin_authenticated")
+    if (authStatus === "true") {
+      setIsAuthenticated(true)
+    }
+  }, [])
+
+  const handleLogin = async (key: string) => {
+    const isValid = await validateSecretKey(key)
+
+    if (isValid) {
+      setIsAuthenticated(true)
+      setAuthError(null)
+      sessionStorage.setItem("admin_authenticated", "true")
+    } else {
+      setAuthError("Invalid secret key. Please try again.")
+    }
+  }
+
+  const handleLogout = () => {
+    setIsAuthenticated(false)
+    sessionStorage.removeItem("admin_authenticated")
+  }
+
+  const handleCreate = () => {
+    setEditingProblem(null)
+    setIsModalOpen(true)
+  }
+
+  const handleEdit = (problem: Problem) => {
+    setEditingProblem(problem)
+    setIsModalOpen(true)
+  }
+
+  const handleDelete = (id: string) => {
+    setProblems(problems.filter((p) => p.id !== id))
+  }
+
+  const handleSave = (problem: Problem) => {
+    if (editingProblem) {
+      setProblems(problems.map((p) => (p.id === problem.id ? { ...problem, updatedAt: new Date().toISOString() } : p)))
+    } else {
+      setProblems([...problems, { ...problem, id: Date.now().toString() }])
+    }
+    setIsModalOpen(false)
+    setEditingProblem(null)
+  }
+
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={handleLogin} error={authError} />
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-4xl font-bold text-foreground mb-2">Problem Dashboard</h1>
+              <p className="text-muted-foreground">Manage coding problems and test cases</p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handleCreate} size="lg" className="gap-2">
+                <Plus className="w-5 h-5" />
+                Create Problem
+              </Button>
+              <Button onClick={handleLogout} size="lg" variant="outline" className="gap-2 bg-transparent">
+                <LogOut className="w-5 h-5" />
+                Logout
+              </Button>
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-6"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search problems by title, statement, or framework..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12 text-base"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
           >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <ProblemTable problems={filteredProblems} onEdit={handleEdit} onDelete={handleDelete} />
+          </motion.div>
+
+          {filteredProblems.length === 0 && searchQuery && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
+              <p className="text-muted-foreground text-lg">No problems found matching "{searchQuery}"</p>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <ProblemModal
+            problem={editingProblem}
+            onClose={() => {
+              setIsModalOpen(false)
+              setEditingProblem(null)
+            }}
+            onSave={handleSave}
+          />
+        )}
+      </AnimatePresence>
     </div>
-  );
+  )
 }
