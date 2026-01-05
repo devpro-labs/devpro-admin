@@ -1,12 +1,15 @@
-"use server"
-
 export async function validateSecretKey(key: string): Promise<boolean> {
-  const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY
-
-  if (!ADMIN_SECRET_KEY) {
-    console.error("[v0] ADMIN_SECRET_KEY environment variable is not set")
+  try {
+    const res = await fetch("http://localhost:8082/api/problems", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": key,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({})
+    })
+    return res.status !== 401
+  } catch {
     return false
   }
-
-  return key === ADMIN_SECRET_KEY
 }
