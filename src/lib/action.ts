@@ -1,6 +1,6 @@
 export async function validateSecretKey(key: string): Promise<boolean> {
   try {
-    const res = await fetch("http://localhost:8082/api/problems", {
+    const res = await fetch("http://localhost:9000/api/problems", {
       method: "POST",
       headers: {
         "X-API-KEY": key,

@@ -1,16 +1,16 @@
 import type { ProblemRequest, ProblemResponse } from "@/lib/types"
 
-const BASE_URL = "http://localhost:8080/api/problems"
+const BASE_URL = "http://localhost:9000/api/problems"
 
 /* -------------------- GET (PUBLIC) -------------------- */
 export async function fetchProblems(): Promise<ProblemResponse[]> {
   const res = await fetch(BASE_URL)
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch problems")
-  }
-
-  return res.json()
+  console.log("Fetch problems response:", res)
+  const result = await res.json()
+  console.log("Fetched problems:", result)
+  const data = result.DATA.problems
+  console.log("Fetched problems:", data)
+  return data
 }
 
 /* -------------------- CREATE (ADMIN) -------------------- */

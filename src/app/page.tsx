@@ -42,11 +42,11 @@ export default function AdminDashboard() {
 
   /* -------------------- LOAD PROBLEMS -------------------- */
   useEffect(() => {
-    fetchProblems()
-      .then(setProblems)
-      .catch(() => alert("Failed to load problems"))
-  }, [])
-
+    if (isAuthenticated)
+      fetchProblems()
+        .then(setProblems)
+        .catch(() => alert("Failed to load problems"))
+  }, [isAuthenticated])
   /* -------------------- FILTER -------------------- */
   const filteredProblems = useMemo(() => {
     if (!searchQuery.trim()) return problems
