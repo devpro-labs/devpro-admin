@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import type { ProblemRequest, ProblemResponse } from "@/lib/types"
 import { ProblemTable } from "@/components/table"
 import { ProblemModal } from "@/components/problem-modal"
 import { Search, Plus, LogOut } from "lucide-react"
@@ -16,18 +15,28 @@ import {
   updateProblem,
   deleteProblem,
 } from "@/lib/api"
+import { Problem } from "@/lib/types"
+import { ProblemDetailPage } from "@/components/details-page"
+import Dashboard from "@/components/dashboard"
+import { useRouter } from "next/navigation"
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [apiKey, setApiKey] = useState("")
   const [authError, setAuthError] = useState<string | null>(null)
 
-  const [problems, setProblems] = useState<ProblemResponse[]>([])
+  const [problems, setProblems] = useState<Problem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isModalOpen, setIsModalOpen] = useState(false)
 
+  const [currentPage, setCurrentPage] = useState<"list" | "detail">("list")
+  const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null)
+
+  const router = useRouter();
+
+
   const [editingProblem, setEditingProblem] =
-    useState<ProblemResponse | null>(null)
+    useState<Problem | null>(null)
 
   /* -------------------- LOAD AUTH -------------------- */
   useEffect(() => {
@@ -88,7 +97,7 @@ export default function AdminDashboard() {
     setIsModalOpen(true)
   }
 
-  const handleEdit = (problem: ProblemResponse) => {
+  const handleEdit = (problem: Problem) => {
     setEditingProblem(problem)
     setIsModalOpen(true)
   }
@@ -102,7 +111,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleSave = async (req: ProblemRequest) => {
+  const handleSave = async (req: Problem) => {
     try {
       if (editingProblem) {
         const updated = await updateProblem(
@@ -132,49 +141,63 @@ export default function AdminDashboard() {
 
   /* -------------------- UI -------------------- */
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-4xl font-bold mb-2">
-                Problem Dashboard
-              </h1>
-              <p className="text-muted-foreground">
-                Admin-only CRUD via Passkey
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <Button onClick={handleCreate} size="lg">
-                <Plus className="w-5 h-5 mr-2" />
-                Create
-              </Button>
-              <Button onClick={handleLogout} variant="outline" size="lg">
-                <LogOut className="w-5 h-5 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-
-          <div className="mb-6 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
-            <Input
-              placeholder="Search by title / difficulty / category"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12"
+    <div className="min-h-screen bg-[#05060a]">
+      <AnimatePresence mode="wait">
+        {currentPage === "list" && (
+          <motion.div
+            key="list"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+          >
+            <Dashboard
+              handleCreate={handleCreate}
+              handleLogout={handleLogout}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              filteredProblems={filteredProblems}
+              handleEdit={(p) => {
+                setEditingProblem(p)
+                setIsModalOpen(true)
+              }}
+              handleDelete={handleDelete}
+              problemClickHandler={
+                () => {
+                  setCurrentPage("detail");
+                }
+              }
             />
-          </div>
 
-          <ProblemTable
-            problems={filteredProblems}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-        </motion.div>
-      </div>
+            {/* Clicking a row should open detail */}
+            
+          </motion.div>
+        )}
 
+        {currentPage === "detail" && selectedProblem && (
+          <motion.div
+            key="detail"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="max-w-7xl mx-auto p-8"
+          >
+            <ProblemDetailPage
+              problem={selectedProblem}
+              onBack={() => setCurrentPage("list")}
+              onEdit={() => {
+                setEditingProblem(selectedProblem)
+                setIsModalOpen(true)
+              }}
+              onDelete={() => {
+                handleDelete(selectedProblem.id)
+                setCurrentPage("list")
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <ProblemModal
@@ -189,4 +212,5 @@ export default function AdminDashboard() {
       </AnimatePresence>
     </div>
   )
+
 }
