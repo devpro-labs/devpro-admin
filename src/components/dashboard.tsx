@@ -1,14 +1,15 @@
+'use client';
+
 import { Plus, LogOut, Search } from "lucide-react"
 import { motion } from "framer-motion"
 import React from "react"
+import { useRouter } from "next/navigation"
 import { ProblemTable } from "./table"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Problem } from "@/lib/types"
 
-
 interface DashboardProps {
-  handleCreate: () => void
   handleLogout: () => void
   searchQuery: string
   setSearchQuery: (v: string) => void
@@ -16,18 +17,25 @@ interface DashboardProps {
   handleEdit: (p: Problem) => void
   handleDelete: (id: string) => void
   problemClickHandler: () => void
+  handleCreate: () => void
 }
 
 const Dashboard = ({
-  handleCreate,
   handleLogout,
   searchQuery,
   setSearchQuery,
   filteredProblems,
   handleEdit,
   handleDelete,
-  problemClickHandler
+  problemClickHandler,
+  handleCreate
 }: DashboardProps) => {
+  const router = useRouter()
+
+  const handleCreateProblem = () => {
+    router.push("/create-problem")
+  }
+
   return (
     <div className="min-h-screen bg-[#05060a] text-white px-6 py-10">
       <motion.div
@@ -61,7 +69,7 @@ const Dashboard = ({
               onClick={handleLogout}
               variant="outline"
               size="lg"
-              className="border-white/10 text-gray-300 hover:bg-white/5"
+              className="border-white/10 text-gray-300 hover:bg-white/5 bg-transparent"
             >
               <LogOut className="w-5 h-5 mr-2" />
               Logout

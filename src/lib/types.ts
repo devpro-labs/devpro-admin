@@ -1,25 +1,38 @@
 export type Framework = "express" | "fastapi"
 
-export type ServiceType = "REDIS" | "KAFKA" | "DB"
+export type ServiceType = "REDIS" | "POSTGRES" | "MONGODB" | "AUTH" | "REST"
+
+export type HTTPMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH"
 
 export type TestCaseType = "sample" | "hidden"
 
 export interface TestCase {
-  id: string
-  input: string
-  expectedOutput: string
-  type: TestCaseType
+  id?: string
+  problemId?: string
+  method: HTTPMethod
+  endpoint: string
+  input: Record<string, unknown>
+  expectedOutput: Record<string, unknown>
+  expectedStatus: number
+  isHidden: boolean
+}
+
+export interface TestCaseRequest {
+  method: HTTPMethod
+  endpoint: string
+  input: Record<string, unknown>
+  expectedOutput: Record<string, unknown>
+  expectedStatus: number
+  isHidden: boolean
 }
 
 export interface Problem {
   id: string
   title: string
   slug: string
-  statement: string
   description: string
   difficulty: string
   category: string
-  framework: Framework
   imageName: string
   entryFile: string
   services: ServiceType[]
@@ -27,9 +40,23 @@ export interface Problem {
   timeLimitSeconds: number
   memoryLimitMB: number
   cpuLimit: number
-  expectedFrameworks: Framework[]
   testCases: TestCase[]
   isActive: boolean
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ProblemRequest {
+  title: string
+  description: string
+  difficulty: string
+  tags: string[]
+  imageName: string
+  entryFile: string
+  services: ServiceType[]
+  keys: Record<string, string>
+  timeLimitSeconds: number
+  memoryLimitMB: number
+  cpuLimit: number
+  testCases: TestCaseRequest[]
 }

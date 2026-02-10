@@ -34,9 +34,13 @@ export default function AdminDashboard() {
 
   const router = useRouter();
 
-
   const [editingProblem, setEditingProblem] =
     useState<Problem | null>(null)
+
+  const handleCreate = () => {
+    setEditingProblem(null)
+    setIsModalOpen(true)
+  }
 
   /* -------------------- LOAD AUTH -------------------- */
   useEffect(() => {
@@ -92,11 +96,6 @@ export default function AdminDashboard() {
   }
 
   /* -------------------- CRUD -------------------- */
-  const handleCreate = () => {
-    setEditingProblem(null)
-    setIsModalOpen(true)
-  }
-
   const handleEdit = (problem: Problem) => {
     setEditingProblem(problem)
     setIsModalOpen(true)
@@ -151,7 +150,6 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, x: 20 }}
           >
             <Dashboard
-              handleCreate={handleCreate}
               handleLogout={handleLogout}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
