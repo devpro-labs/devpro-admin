@@ -1,82 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ProblemRequest } from '@/lib/types'
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:9000/api'
-const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'your-secret-key'
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify API key
-    const apiKey = request.headers.get('X-API-Key')
-    if (apiKey !== ADMIN_SECRET) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    console.log('[v0] Upload API called')
+    
+    const formData = await request.formData()
+    const file = formData.get('file') as File
 
-    // Parse request body
-    const data: ProblemRequest = await request.json()
+    console.log('[v0] File received:', file?.name, file?.size)
 
-    // Validate required fields
-    if (!data.title || !data.description || !data.entryFile) {
+    if (!file) {
+      console.log('[v0] No file provided')
       return NextResponse.json(
-        { error: 'Missing required fields: title, description, entryFile' },
+        { error: 'No file provided' },
         { status: 400 }
       )
     }
 
-    // Forward to backend
-    const response = await fetch(`${BACKEND_URL}/problems`, {
-      method: 'POST',
-       headers: {
-      "Content-Type": "application/json",
-      "X-API-KEY": apiKey,
-    },
-      body: JSON.stringify(data),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
+    // Validate file
+    if (file.size === 0) {
       return NextResponse.json(
-        { error: errorData.message || 'Failed to create problem' },
-        { status: response.status }
+        { error: 'File is empty' },
+        { status: 400 }
       )
     }
 
-    const result = await response.json()
-    return NextResponse.json(result, { status: 201 })
+    const fileName = file.name
+    const timestamp = new Date().getTime()
+    const mockUrl = `https://cloudinary-mock.com/uploads/${timestamp}-${fileName}`
+
+    console.log('[v0] Mock upload URL generated:', mockUrl)
+
+    // TODO: Replace with actual Cloudinary upload
+    // const formDataCloudinary = new FormData()
+    // formDataCloudinary.append('file', file)
+    // formDataCloudinary.append('upload_preset', process.env.CLOUDINARY_UPLOAD_PRESET!)
+    // 
+    // const cloudinaryResponse = await fetch(
+    //   `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/auto/upload`,
+    //   {
+    //     method: 'POST',
+    //     body: formDataCloudinary,
+    //   }
+    // )
+    //
+    // if (!cloudinaryResponse.ok) {
+    //   throw new Error('Cloudinary upload failed')
+    // }
+    //
+    // const cloudinaryData = await cloudinaryResponse.json()
+    // const url = cloudinaryData.secure_url
+
+    return NextResponse.json({ url: mockUrl }, { status: 200 })
   } catch (error) {
-    console.error('Error creating problem:', error)
+    console.error('[v0] Upload error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const response = await fetch(`${BACKEND_URL}/problems`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: 'Failed to fetch problems' },
-        { status: response.status }
-      )
-    }
-
-    const result = await response.json()
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error('Error fetching problems:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Upload failed' },
       { status: 500 }
     )
   }

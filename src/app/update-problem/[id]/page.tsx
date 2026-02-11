@@ -19,15 +19,7 @@ export default function UpdateProblemPage() {
     const fetchProblem = async () => {
       try {
         setLoading(true)
-
-        const apiKey = sessionStorage.getItem('admin_api_key')
-
-      if (!apiKey) {
-        setError('Authentication required. Please login first.')
-        router.push('/')
-        return
-      }
-        const response = await fetch('http://localhost:9000/api/problems/${problemId}')
+        const response = await fetch(`/api/problems/${problemId}`)
         if (!response.ok) throw new Error('Failed to fetch problem')
         const data = await response.json()
         setProblem(data)
@@ -45,21 +37,10 @@ export default function UpdateProblemPage() {
 
   const handleSubmit = async (data: ProblemRequest) => {
     try {
-      const apiKey = sessionStorage.getItem('admin_api_key')
-
-      if (!apiKey) {
-        setError('Authentication required. Please login first.')
-        router.push('/')
-        return
-      }
-
       setSubmitting(true)
-      const response = await fetch('http://localhost:9000/api/problems/${problemId}', {
+      const response = await fetch(`/api/problems/${problemId}`, {
         method: 'PUT',
-       headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
 

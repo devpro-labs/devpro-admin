@@ -1,20 +1,13 @@
 'use client'
 
-import React from "react"
-
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { ProblemRequest, ServiceType, HTTPMethod, TestCaseRequest } from '@/lib/types'
-import { ChevronDown, Plus, Trash2, X } from 'lucide-react'
-
-const DIFFICULTIES = ['Easy', 'Medium', 'Hard']
-const SERVICES: ServiceType[] = ['REDIS', 'POSTGRES', 'MONGODB', 'AUTH', 'REST']
-const HTTP_METHODS: HTTPMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+import { ProblemRequest, TestCaseRequest, HTTPMethod } from '@/lib/types'
+import { BasicInfoSection } from './problem-form/BasicInfoSection'
+import { ServicesSection } from './problem-form/ServicesSection'
+import { FilesSection } from './problem-form/FilesSection'
+import { ResourceLimitsSection } from './problem-form/ResourceLimitsSection'
+import { TestCasesSection } from './problem-form/TestCasesSection'
 
 interface CreateProblemFormProps {
   onSubmit: (data: ProblemRequest) => Promise<void>
@@ -27,12 +20,17 @@ export function CreateProblemForm({
   onCancel,
   isLoading = false,
 }: CreateProblemFormProps) {
+  // ==================== FORM STATE ====================
   const [formData, setFormData] = useState<ProblemRequest>({
     title: '',
     description: '',
     difficulty: 'Medium',
     tags: [],
-    imageName: '',
+    imageName: {
+      fastapi: '',
+      'express-js': '',
+      'express-ts': '',
+    },
     entryFile: '',
     services: [],
     keys: {},
@@ -42,13 +40,17 @@ export function CreateProblemForm({
     testCases: [],
   })
 
+  // ==================== UI STATE ====================
   const [currentTag, setCurrentTag] = useState('')
   const [expandedSections, setExpandedSections] = useState({
     basic: true,
     services: false,
+    files: false,
     limits: false,
     testcases: false,
   })
+
+  // ==================== TEST CASE STATE ====================
   const [currentTestCase, setCurrentTestCase] = useState<Partial<TestCaseRequest>>({
     method: 'GET',
     endpoint: '',
@@ -57,37 +59,48 @@ export function CreateProblemForm({
     expectedStatus: 200,
     isHidden: false,
   })
-  const [keyInput, setKeyInput] = useState({ key: '', value: '' })
   const [inputRaw, setInputRaw] = useState('')
   const [outputRaw, setOutputRaw] = useState('')
   const [inputError, setInputError] = useState('')
   const [outputError, setOutputError] = useState('')
 
+  // ==================== FILE UPLOAD STATE ====================
+  const [composeFiles, setComposeFiles] = useState<Record<string, File[]>>({
+    'js-express': [],
+    'ts-express': [],
+    'py-fastapi': [],
+  })
+  const [composeFileUrls, setComposeFileUrls] = useState<Record<string, string[]>>({
+    'js-express': [],
+    'ts-express': [],
+    'py-fastapi': [],
+  })
+  const [uploading, setUploading] = useState(false)
+
+  // ==================== SERVICES STATE ====================
+  const [keyInput, setKeyInput] = useState({ key: '', value: '' })
+
+  // ==================== HELPERS: FORM CHANGE ====================
   const handleInputChange = (field: keyof ProblemRequest, value: unknown) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  // ==================== HELPERS: TAGS ====================
   const addTag = () => {
-    if (currentTag.trim() && !formData.tags.includes(currentTag)) {
-      handleInputChange('tags', [...formData.tags, currentTag])
+    if (currentTag.trim() && !formData.tags.includes(currentTag.trim())) {
+      handleInputChange('tags', [...formData.tags, currentTag.trim()])
       setCurrentTag('')
     }
   }
 
   const removeTag = (tag: string) => {
-    handleInputChange('tags', formData.tags.filter((t) => t !== tag))
+    handleInputChange(
+      'tags',
+      formData.tags.filter((t) => t !== tag)
+    )
   }
 
-  const toggleService = (service: ServiceType) => {
-    const newServices = formData.services.includes(service)
-      ? formData.services.filter((s) => s !== service)
-      : [...formData.services, service]
-    handleInputChange('services', newServices)
-  }
-
+  // ==================== HELPERS: SERVICES ====================
   const addKey = () => {
     if (keyInput.key.trim() && keyInput.value.trim()) {
       handleInputChange('keys', {
@@ -104,58 +117,7 @@ export function CreateProblemForm({
     handleInputChange('keys', newKeys)
   }
 
-  const addTestCase = () => {
-    // Validate JSON inputs
-    if (inputError || outputError) {
-      alert('Please fix JSON formatting errors before adding test case')
-      return
-    }
-
-    if (
-      currentTestCase.endpoint &&
-      currentTestCase.method &&
-      currentTestCase.expectedStatus !== undefined
-    ) {
-      const testCase: TestCaseRequest = {
-        method: currentTestCase.method as HTTPMethod,
-        endpoint: currentTestCase.endpoint,
-        input: currentTestCase.input || {},
-        expectedOutput: currentTestCase.expectedOutput || {},
-        expectedStatus: currentTestCase.expectedStatus,
-        isHidden: currentTestCase.isHidden || false,
-      }
-      handleInputChange('testCases', [...formData.testCases, testCase])
-      resetTestCaseForm()
-    }
-  }
-
-  const removeTestCase = (index: number) => {
-    handleInputChange(
-      'testCases',
-      formData.testCases.filter((_, i) => i !== index)
-    )
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.title || !formData.description || !formData.entryFile) {
-      alert('Please fill in all required fields')
-      return
-    }
-    try {
-      await onSubmit(formData)
-    } catch (error) {
-      console.error('Form submission error:', error)
-    }
-  }
-
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
-
+  // ==================== HELPERS: JSON PARSING ====================
   const handleInputRawChange = (value: string) => {
     setInputRaw(value)
     setInputError('')
@@ -186,6 +148,38 @@ export function CreateProblemForm({
     }
   }
 
+  // ==================== HELPERS: TEST CASES ====================
+  const addTestCase = () => {
+    if (inputError || outputError) {
+      alert('Please fix JSON formatting errors before adding test case')
+      return
+    }
+
+    if (
+      currentTestCase.endpoint &&
+      currentTestCase.method &&
+      currentTestCase.expectedStatus !== undefined
+    ) {
+      const testCase: TestCaseRequest = {
+        method: currentTestCase.method as HTTPMethod,
+        endpoint: currentTestCase.endpoint,
+        input: currentTestCase.input || {},
+        expectedOutput: currentTestCase.expectedOutput || {},
+        expectedStatus: currentTestCase.expectedStatus,
+        isHidden: currentTestCase.isHidden || false,
+      }
+      handleInputChange('testCases', [...formData.testCases, testCase])
+      resetTestCaseForm()
+    }
+  }
+
+  const removeTestCase = (index: number) => {
+    handleInputChange(
+      'testCases',
+      formData.testCases.filter((_, i) => i !== index)
+    )
+  }
+
   const resetTestCaseForm = () => {
     setCurrentTestCase({
       method: 'GET',
@@ -201,540 +195,172 @@ export function CreateProblemForm({
     setOutputError('')
   }
 
+  // ==================== HELPERS: FILE UPLOAD ====================
+  const handleFileUpload = (key: string, file: File) => {
+    if (!file) {
+      alert('Please select a file')
+      return
+    }
+
+    console.log('[v0] [handleFileUpload] Adding file for key:', key, 'file:', file.name, 'size:', file.size)
+
+    // Store actual file object
+    setComposeFiles((prev) => {
+      const newFiles = {
+        ...prev,
+        [key]: [...(prev[key] || []), file],
+      }
+      console.log('[v0] [handleFileUpload] Updated composeFiles:', newFiles)
+      return newFiles
+    })
+
+    // Show file name for visual feedback
+    const fileName = file.name
+    setComposeFileUrls((prev) => {
+      const newUrls = {
+        ...prev,
+        [key]: [...(prev[key] || []), fileName],
+      }
+      console.log('[v0] [handleFileUpload] Updated composeFileUrls:', newUrls)
+      return newUrls
+    })
+
+    console.log(`[v0] File ${file.name} added successfully for ${key}`)
+  }
+
+  const removeComposeFile = (key: string, index: number) => {
+    setComposeFiles((prev) => ({
+      ...prev,
+      [key]: prev[key]?.filter((_, i) => i !== index) || [],
+    }))
+    setComposeFileUrls((prev) => ({
+      ...prev,
+      [key]: prev[key]?.filter((_, i) => i !== index) || [],
+    }))
+  }
+
+  // ==================== FORM SUBMISSION ====================
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.title || !formData.description || !formData.entryFile) {
+      alert('Please fill in all required fields')
+      return
+    }
+    try {
+      console.log('[v0] [handleSubmit] Starting submission...')
+      console.log('[v0] [handleSubmit] composeFiles:', composeFiles)
+
+      // Convert array-based composeFileUrls to object format for backend
+      const composeFileObj: Record<string, string> = {}
+      Object.entries(composeFileUrls).forEach(([key, urls]) => {
+        if (urls && urls.length > 0) {
+          composeFileObj[key] = urls[0] // Use first file for this key (for display)
+        }
+      })
+
+      console.log('[v0] [handleSubmit] composeFileObj:', composeFileObj)
+
+      const dataToSubmit = {
+        ...formData,
+        composeFile: Object.keys(composeFileObj).length > 0 ? composeFileObj : {},
+        _composeFiles: composeFiles, // Include actual File objects
+      }
+
+      console.log('[v0] [handleSubmit] dataToSubmit:', dataToSubmit)
+      await onSubmit(dataToSubmit as any)
+    } catch (error) {
+      console.error('[v0] Form submission error:', error)
+    }
+  }
+
+  // ==================== RENDER ====================
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create New Problem</h1>
-          <p className="text-slate-400">Configure a new coding problem with REST API and microservices support</p>
-        </div>
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-4xl mx-auto">
+      <BasicInfoSection
+        formData={formData}
+        onFormChange={handleInputChange}
+        isExpanded={expandedSections.basic}
+        onToggle={() =>
+          setExpandedSections((prev) => ({ ...prev, basic: !prev.basic }))
+        }
+        currentTag={currentTag}
+        onTagInputChange={setCurrentTag}
+        onAddTag={addTag}
+        onRemoveTag={removeTag}
+      />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() => toggleSection('basic')}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white">Basic Information</CardTitle>
-                  <CardDescription>Title, description, and difficulty</CardDescription>
-                </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.basic ? 'rotate-180' : ''
-                    }`}
-                />
-              </div>
-            </CardHeader>
-            {expandedSections.basic && (
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="title" className="text-slate-200">
-                    Title *
-                  </Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    placeholder="e.g., REST API User Management"
-                    className="mt-1 bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
+      <ServicesSection
+        formData={formData}
+        onFormChange={handleInputChange}
+        isExpanded={expandedSections.services}
+        onToggle={() =>
+          setExpandedSections((prev) => ({ ...prev, services: !prev.services }))
+        }
+        keyInput={keyInput}
+        onKeyInputChange={(key, value) => setKeyInput({ key, value })}
+        onAddKey={addKey}
+        onRemoveKey={removeKey}
+      />
 
-                <div>
-                  <Label htmlFor="description" className="text-slate-200">
-                    Description *
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) =>
-                      handleInputChange('description', e.target.value)
-                    }
-                    placeholder="Detailed problem description..."
-                    rows={5}
-                    className="mt-1 bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
+      <FilesSection
+        isExpanded={expandedSections.files}
+        onToggle={() =>
+          setExpandedSections((prev) => ({ ...prev, files: !prev.files }))
+        }
+        composeFileUrls={composeFileUrls}
+        uploading={uploading}
+        onFileUpload={handleFileUpload}
+        onRemoveFile={removeComposeFile}
+      />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="difficulty" className="text-slate-200">
-                      Difficulty
-                    </Label>
-                    <select
-                      id="difficulty"
-                      value={formData.difficulty}
-                      onChange={(e) =>
-                        handleInputChange('difficulty', e.target.value)
-                      }
-                      className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-md"
-                    >
-                      {DIFFICULTIES.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+      <ResourceLimitsSection
+        formData={formData}
+        onFormChange={handleInputChange}
+        isExpanded={expandedSections.limits}
+        onToggle={() =>
+          setExpandedSections((prev) => ({ ...prev, limits: !prev.limits }))
+        }
+      />
 
-                  <div>
-                    <Label htmlFor="entryFile" className="text-slate-200">
-                      Entry File *
-                    </Label>
-                    <Input
-                      id="entryFile"
-                      value={formData.entryFile}
-                      onChange={(e) =>
-                        handleInputChange('entryFile', e.target.value)
-                      }
-                      placeholder="e.g., app.py, index.js"
-                      className="mt-1 bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                </div>
+      <TestCasesSection
+        formData={formData}
+        onFormChange={handleInputChange}
+        isExpanded={expandedSections.testcases}
+        onToggle={() =>
+          setExpandedSections((prev) => ({ ...prev, testcases: !prev.testcases }))
+        }
+        currentTestCase={currentTestCase}
+        onCurrentTestCaseChange={(field, value) =>
+          setCurrentTestCase((prev) => ({ ...prev, [field]: value }))
+        }
+        inputRaw={inputRaw}
+        outputRaw={outputRaw}
+        inputError={inputError}
+        outputError={outputError}
+        onInputRawChange={handleInputRawChange}
+        onOutputRawChange={handleOutputRawChange}
+        onAddTestCase={addTestCase}
+        onRemoveTestCase={removeTestCase}
+      />
 
-                <div>
-                  <Label htmlFor="imageName" className="text-slate-200">
-                    Image Name
-                  </Label>
-                  <Input
-                    id="imageName"
-                    value={formData.imageName}
-                    onChange={(e) =>
-                      handleInputChange('imageName', e.target.value)
-                    }
-                    placeholder="e.g., python:3.11"
-                    className="mt-1 bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-slate-200 mb-3 block">Tags</Label>
-                  <div className="flex gap-2 mb-3">
-                    <Input
-                      value={currentTag}
-                      onChange={(e) => setCurrentTag(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          addTag()
-                        }
-                      }}
-                      placeholder="Add tag..."
-                      className="bg-slate-800 border-slate-700 text-white flex-1"
-                    />
-                    <Button
-                      type="button"
-                      onClick={addTag}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Add
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        className="bg-blue-900 text-blue-100 flex items-center gap-2"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="hover:text-white"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Services Configuration */}
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() => toggleSection('services')}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white">Services & Configuration</CardTitle>
-                  <CardDescription>
-                    Microservices and environment configuration
-                  </CardDescription>
-                </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.services ? 'rotate-180' : ''
-                    }`}
-                />
-              </div>
-            </CardHeader>
-            {expandedSections.services && (
-              <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-slate-200 mb-3 block">
-                    Required Services
-                  </Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {SERVICES.map((service) => (
-                      <button
-                        key={service}
-                        type="button"
-                        onClick={() => toggleService(service)}
-                        className={`p-3 rounded-md border-2 transition-all ${formData.services.includes(service)
-                            ? 'bg-blue-900 border-blue-600 text-blue-100'
-                            : 'bg-slate-800 border-slate-700 text-slate-400'
-                          }`}
-                      >
-                        {service}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-slate-200 mb-3 block">
-                    Environment Variables
-                  </Label>
-                  <div className="space-y-2 mb-3">
-                    <div className="flex gap-2">
-                      <Input
-                        value={keyInput.key}
-                        onChange={(e) =>
-                          setKeyInput((prev) => ({
-                            ...prev,
-                            key: e.target.value,
-                          }))
-                        }
-                        placeholder="Variable name"
-                        className="bg-slate-800 border-slate-700 text-white flex-1"
-                      />
-                      <Input
-                        value={keyInput.value}
-                        onChange={(e) =>
-                          setKeyInput((prev) => ({
-                            ...prev,
-                            value: e.target.value,
-                          }))
-                        }
-                        placeholder="Value"
-                        className="bg-slate-800 border-slate-700 text-white flex-1"
-                      />
-                      <Button
-                        type="button"
-                        onClick={addKey}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {Object.entries(formData.keys).map(([key, value]) => (
-                      <div
-                        key={key}
-                        className="flex items-center justify-between p-2 bg-slate-800 rounded border border-slate-700"
-                      >
-                        <div>
-                          <span className="text-slate-300 font-mono">{key}</span>
-                          <span className="text-slate-500 mx-2">=</span>
-                          <span className="text-slate-400 font-mono">{value}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeKey(key)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Resource Limits */}
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() => toggleSection('limits')}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white">Resource Limits</CardTitle>
-                  <CardDescription>
-                    Time, memory, and CPU constraints
-                  </CardDescription>
-                </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.limits ? 'rotate-180' : ''
-                    }`}
-                />
-              </div>
-            </CardHeader>
-            {expandedSections.limits && (
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="timeLimitSeconds" className="text-slate-200">
-                      Time Limit (seconds)
-                    </Label>
-                    <Input
-                      id="timeLimitSeconds"
-                      type="number"
-                      value={formData.timeLimitSeconds}
-                      onChange={(e) =>
-                        handleInputChange('timeLimitSeconds', parseInt(e.target.value))
-                      }
-                      min="1"
-                      className="mt-1 bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="memoryLimitMB" className="text-slate-200">
-                      Memory Limit (MB)
-                    </Label>
-                    <Input
-                      id="memoryLimitMB"
-                      type="number"
-                      value={formData.memoryLimitMB}
-                      onChange={(e) =>
-                        handleInputChange('memoryLimitMB', parseInt(e.target.value))
-                      }
-                      min="1"
-                      className="mt-1 bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cpuLimit" className="text-slate-200">
-                      CPU Limit (cores)
-                    </Label>
-                    <Input
-                      id="cpuLimit"
-                      type="number"
-                      value={formData.cpuLimit}
-                      onChange={(e) =>
-                        handleInputChange('cpuLimit', parseFloat(e.target.value))
-                      }
-                      step="0.1"
-                      min="0.1"
-                      className="mt-1 bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Test Cases */}
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader
-              className="cursor-pointer"
-              onClick={() => toggleSection('testcases')}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white">Test Cases</CardTitle>
-                  <CardDescription>
-                    REST API test cases and assertions
-                  </CardDescription>
-                </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.testcases ? 'rotate-180' : ''
-                    }`}
-                />
-              </div>
-            </CardHeader>
-            {expandedSections.testcases && (
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-slate-200">HTTP Method</Label>
-                      <select
-                        value={currentTestCase.method || 'GET'}
-                        onChange={(e) =>
-                          setCurrentTestCase((prev) => ({
-                            ...prev,
-                            method: e.target.value as HTTPMethod,
-                          }))
-                        }
-                        className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-md"
-                      >
-                        {HTTP_METHODS.map((method) => (
-                          <option key={method} value={method}>
-                            {method}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-slate-200">Endpoint</Label>
-                      <Input
-                        value={currentTestCase.endpoint || ''}
-                        onChange={(e) =>
-                          setCurrentTestCase((prev) => ({
-                            ...prev,
-                            endpoint: e.target.value,
-                          }))
-                        }
-                        placeholder="/api/users"
-                        className="mt-1 bg-slate-800 border-slate-700 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-slate-200">Expected Status Code</Label>
-                    <Input
-                      type="number"
-                      value={currentTestCase.expectedStatus || 200}
-                      onChange={(e) =>
-                        setCurrentTestCase((prev) => ({
-                          ...prev,
-                          expectedStatus: parseInt(e.target.value),
-                        }))
-                      }
-                      min="100"
-                      max="599"
-                      className="mt-1 bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-slate-200">
-                      Request Input (JSON)
-                      {inputError && (
-                        <span className="text-red-400 text-sm ml-2">{inputError}</span>
-                      )}
-                    </Label>
-                    <Textarea
-                      value={inputRaw}
-                      onChange={(e) => handleInputRawChange(e.target.value)}
-                      placeholder='{"name": "John", "email": "john@example.com"}'
-                      rows={3}
-                      className={`mt-1 bg-slate-800 border-slate-700 text-white font-mono text-sm ${inputError ? 'border-red-500' : ''
-                        }`}
-                    />
-                    <p className="text-slate-500 text-xs mt-1">Enter valid JSON or leave empty for empty object</p>
-                  </div>
-
-                  <div>
-                    <Label className="text-slate-200">
-                      Expected Output (JSON)
-                      {outputError && (
-                        <span className="text-red-400 text-sm ml-2">{outputError}</span>
-                      )}
-                    </Label>
-                    <Textarea
-                      value={outputRaw}
-                      onChange={(e) => handleOutputRawChange(e.target.value)}
-                      placeholder='{"id": 1, "name": "John", "email": "john@example.com", "status": "active"}'
-                      rows={3}
-                      className={`mt-1 bg-slate-800 border-slate-700 text-white font-mono text-sm ${outputError ? 'border-red-500' : ''
-                        }`}
-                    />
-                    <p className="text-slate-500 text-xs mt-1">Enter valid JSON or leave empty for empty object</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="isHidden"
-                      checked={currentTestCase.isHidden || false}
-                      onChange={(e) =>
-                        setCurrentTestCase((prev) => ({
-                          ...prev,
-                          isHidden: e.target.checked,
-                        }))
-                      }
-                      className="rounded"
-                    />
-                    <label htmlFor="isHidden" className="text-slate-200">
-                      Hide from users (for evaluation only)
-                    </label>
-                  </div>
-
-                  <Button
-                    type="button"
-                    onClick={addTestCase}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Test Case
-                  </Button>
-                </div>
-
-                {formData.testCases.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-slate-700">
-                    <h4 className="text-white font-semibold mb-3">
-                      Test Cases ({formData.testCases.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {formData.testCases.map((tc, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3 bg-slate-800 rounded border border-slate-700 flex items-center justify-between"
-                        >
-                          <div>
-                            <Badge
-                              className="bg-purple-900 text-purple-100 mr-2"
-                            >
-                              {tc.method}
-                            </Badge>
-                            <span className="text-slate-300">{tc.endpoint}</span>
-                            <span className="text-slate-500 mx-2">→</span>
-                            <span className="text-slate-400 text-sm">
-                              Status: {tc.expectedStatus}
-                            </span>
-                            {tc.isHidden && (
-                              <Badge className="bg-yellow-900 text-yellow-100 ml-2">
-                                Hidden
-                              </Badge>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeTestCase(idx)}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Form Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-            >
-              {isLoading ? 'Creating...' : 'Create Problem'}
-            </Button>
-            <Button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+      {/* Form Actions */}
+      <div className="flex gap-3 pt-4">
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
+        >
+          {isLoading ? 'Creating...' : 'Create Problem'}
+        </Button>
+        <Button
+          type="button"
+          onClick={onCancel}
+          variant="outline"
+          className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800 bg-transparent"
+        >
+          Cancel
+        </Button>
       </div>
-    </div>
+    </form>
   )
 }

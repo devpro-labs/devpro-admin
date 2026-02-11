@@ -10,6 +10,11 @@ import { ChevronDown, Plus, X } from 'lucide-react'
 import { ProblemRequest } from '@/lib/types'
 
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard']
+const FRAMEWORKS = [
+  { key: 'fastapi', label: 'FastAPI (Python)' },
+  { key: 'express-js', label: 'Express.js' },
+  { key: 'express-ts', label: 'Express.js (TypeScript)' },
+]
 
 interface BasicInfoSectionProps {
   formData: ProblemRequest
@@ -82,36 +87,103 @@ export function BasicInfoSection({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="difficulty" className="text-slate-200">
-                Difficulty Level
-              </Label>
-              <select
-                id="difficulty"
-                value={formData.difficulty}
-                onChange={(e) => onFormChange('difficulty', e.target.value)}
-                className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {DIFFICULTIES.map((diff) => (
-                  <option key={diff} value={diff}>
-                    {diff}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <Label htmlFor="difficulty" className="text-slate-200">
+              Difficulty Level
+            </Label>
+            <select
+              id="difficulty"
+              value={formData.difficulty}
+              onChange={(e) => onFormChange('difficulty', e.target.value)}
+              className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {DIFFICULTIES.map((diff) => (
+                <option key={diff} value={diff}>
+                  {diff}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <Label htmlFor="imageName" className="text-slate-200">
-                Image Name
-              </Label>
-              <Input
-                id="imageName"
-                value={formData.imageName}
-                onChange={(e) => onFormChange('imageName', e.target.value)}
-                placeholder="registry/image:tag"
-                className="mt-1 bg-slate-800 border-slate-700 text-white"
-              />
+          <div>
+            <Label className="text-slate-200">Framework Docker Images</Label>
+            <p className="text-slate-400 text-sm mb-3">
+              Add Docker images for each supported framework
+            </p>
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="framework-select" className="text-slate-300 text-sm">
+                  Select Framework
+                </Label>
+                <select
+                  id="framework-select"
+                  className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  onChange={(e) => {
+                    const key = e.target.value
+                    const imageName = (formData.imageName as Record<string, string>) || {}
+                    const value = imageName[key] || ''
+                    
+                    const input = document.getElementById('framework-image-input') as HTMLInputElement
+                    if (input) {
+                      input.value = value
+                    }
+                    
+                    const frameworkLabel = document.getElementById('framework-label')
+                    if (frameworkLabel) {
+                      const label = FRAMEWORKS.find(f => f.key === key)?.label || ''
+                      frameworkLabel.textContent = `${label} Image URL`
+                    }
+                  }}
+                >
+                  <option value="">Choose a framework...</option>
+                  {FRAMEWORKS.map(({ key, label }) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="framework-image-input" id="framework-label" className="text-slate-300 text-sm">
+                  Image URL
+                </Label>
+                <Input
+                  id="framework-image-input"
+                  placeholder="e.g., registry.io/my-framework:latest"
+                  className="mt-1 bg-slate-800 border-slate-700 text-white"
+                  onChange={(e) => {
+                    const frameworkSelect = document.getElementById('framework-select') as HTMLSelectElement
+                    const key = frameworkSelect?.value
+                    if (key) {
+                      const currentImages = (formData.imageName as Record<string, string>) || {}
+                      onFormChange('imageName', {
+                        ...currentImages,
+                        [key]: e.target.value,
+                      })
+                    }
+                  }}
+                />
+              </div>
+
+              {Object.entries((formData.imageName as Record<string, string>) || {}).filter(([_, v]) => v).length > 0 && (
+                <div className="bg-slate-800 rounded border border-slate-700 p-3 mt-4">
+                  <Label className="text-slate-200 text-sm">Configured Images</Label>
+                  <div className="space-y-1 mt-2">
+                    {Object.entries((formData.imageName as Record<string, string>) || {}).map(
+                      ([key, value]) =>
+                        value && (
+                          <div key={key} className="flex items-center justify-between bg-slate-700 p-2 rounded text-sm">
+                            <div>
+                              <p className="text-slate-300 font-semibold">{FRAMEWORKS.find(f => f.key === key)?.label}</p>
+                              <p className="text-slate-400 text-xs truncate">{value}</p>
+                            </div>
+                          </div>
+                        )
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

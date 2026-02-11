@@ -33,13 +33,14 @@ export interface Problem {
   description: string
   difficulty: string
   category: string
-  imageName: string
+  imageName: Record<string, string>
   entryFile: string
   services: ServiceType[]
   keys: Record<string, string>
   timeLimitSeconds: number
   memoryLimitMB: number
   cpuLimit: number
+  composeFile?: Record<string, string>
   testCases: TestCase[]
   isActive: boolean
   createdAt?: string
@@ -51,12 +52,13 @@ export interface ProblemRequest {
   description: string
   difficulty: string
   tags: string[]
-  imageName: string
+  imageName: Record<string, string>
   entryFile: string
   services: ServiceType[]
   keys: Record<string, string>
   timeLimitSeconds: number
   memoryLimitMB: number
   cpuLimit: number
+  composeFile?: Record<string, string>
   testCases: TestCaseRequest[]
 }
