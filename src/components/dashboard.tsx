@@ -2,12 +2,13 @@
 
 import { Plus, LogOut, Search } from "lucide-react"
 import { motion } from "framer-motion"
-import React from "react"
+import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ProblemTable } from "./table"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Problem } from "@/lib/types"
+import { DeleteDialog } from "./delete-dialog"
 
 interface DashboardProps {
   handleLogout: () => void
@@ -31,9 +32,70 @@ const Dashboard = ({
   handleCreate
 }: DashboardProps) => {
   const router = useRouter()
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; problemId: string; problemName: string }>({
+    isOpen: false,
+    problemId: '',
+    problemName: '',
+  })
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleCreateProblem = () => {
     router.push("/create-problem")
+  }
+
+  const handleEditProblem = (problem: Problem) => {
+    console.log('[v0] [Dashboard] Navigating to edit problem:', problem.id)
+    router.push(`/update-problem/${problem.id}`)
+  }
+
+  const openDeleteDialog = (problemId: string, problemName: string) => {
+    setDeleteDialog({
+      isOpen: true,
+      problemId,
+      problemName,
+    })
+  }
+
+  const closeDeleteDialog = () => {
+    setDeleteDialog({
+      isOpen: false,
+      problemId: '',
+      problemName: '',
+    })
+  }
+
+  const confirmDeleteProblem = async () => {
+    setIsDeleting(true)
+    try {
+      const apiKey = sessionStorage.getItem('admin_api_key')
+      if (!apiKey) {
+        throw new Error('Authentication required. Please login first.')
+      }
+
+      console.log('[v0] [Dashboard] Deleting problem:', deleteDialog.problemId)
+
+      // Use the backend directly for DELETE
+      const response = await fetch(`http://localhost:9000/api/problems/${deleteDialog.problemId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-API-Key': apiKey,
+        },
+      })
+
+      console.log('[v0] [Dashboard] Delete response status:', response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || 'Failed to delete problem')
+      }
+
+      closeDeleteDialog()
+      window.location.reload()
+    } catch (error) {
+      console.error('[v0] Delete error:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete problem')
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -91,9 +153,20 @@ const Dashboard = ({
         {/* Table */}
         <ProblemTable
           problems={filteredProblems}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
+          onEdit={handleEditProblem}
+          onDelete={openDeleteDialog}
           problemClickHandler={problemClickHandler}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteDialog
+          isOpen={deleteDialog.isOpen}
+          title="Delete Problem"
+          description="This problem will be permanently deleted. All associated test cases will also be removed."
+          itemName={deleteDialog.problemName}
+          onConfirm={confirmDeleteProblem}
+          onCancel={closeDeleteDialog}
+          isLoading={isDeleting}
         />
       </motion.div>
     </div>

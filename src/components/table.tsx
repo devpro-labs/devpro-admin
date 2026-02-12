@@ -12,7 +12,7 @@ export function ProblemTable({
 }: {
   problems: Problem[]
   onEdit: (p: Problem) => void
-  onDelete: (id: string) => void,
+  onDelete: (id: string, title: string) => void,
   problemClickHandler: () => void
 }) {
   return (
@@ -58,20 +58,26 @@ export function ProblemTable({
               {/* Actions */}
               <td className="px-6 py-4">
                 <div className="flex justify-end gap-2">
-                  {/* <Button
+                  <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => onEdit(p)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit(p)
+                    }}
                     className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 flex items-center gap-1"
                   >
                     <Pencil className="w-4 h-4" />
                     Edit
-                  </Button> */}
+                  </Button>
 
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => onDelete(p.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(p.id, p.title)
+                    }}
                     className="text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-1"
                   >
                     <Trash2 className="w-4 h-4" />

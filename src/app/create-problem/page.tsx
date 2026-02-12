@@ -24,28 +24,62 @@ export default function CreateProblemPage() {
       }
 
       console.log('[v0] [CreateProblem] Preparing submission with files...')
+      console.log('[v0] [CreateProblem] Data:', data)
 
       // Create FormData for backend
       const formData = new FormData()
       
-      // Add problem data as JSON
-      formData.append('problem', JSON.stringify(data))
-
-      // Add actual files if they exist
+      // Extract _composeFiles before creating the problem JSON
       const composeFiles = (data as any)._composeFiles || {}
+      
+      // Create problem object without _composeFiles and imageName (backend doesn't need these)
+      const problemData = { ...data }
+      delete (problemData as any)._composeFiles
+      delete (problemData as any).imageName
+      
+      console.log('[v0] [CreateProblem] Problem data to send:', problemData)
+      
+      // Add problem data as a JSON Blob (not string) - this is important!
+      const problemBlob = new Blob([JSON.stringify(problemData)], { type: 'application/json' })
+      formData.append('problem', problemBlob, 'problem.json')
+
+      // Add files in the correct order: js-express, ts-express, py-fastapi
+      const fileOrder = ['js-express', 'ts-express', 'py-fastapi']
       let fileCount = 0
       
-      Object.entries(composeFiles).forEach(([key, files]) => {
+      fileOrder.forEach((key) => {
+        const files = composeFiles[key]
         if (Array.isArray(files) && files.length > 0) {
-          files.forEach((file) => {
-            formData.append('composeFiles', file)
-            fileCount++
-          })
+          // Only take the first file for each key
+          const file = files[0]
+          
+          // Create a new File object with a name the backend can identify
+          // Backend checks: filename.contains("js"), .contains("ts"), .contains("py") or .contains("fastapi")
+          let identifiableName = file.name
+          if (key === 'js-express' && !identifiableName.toLowerCase().includes('js')) {
+            identifiableName = `docker-compose-js-${Date.now()}.yml`
+          } else if (key === 'ts-express' && !identifiableName.toLowerCase().includes('ts')) {
+            identifiableName = `docker-compose-ts-${Date.now()}.yml`
+          } else if (key === 'py-fastapi' && !identifiableName.toLowerCase().includes('py') && !identifiableName.toLowerCase().includes('fastapi')) {
+            identifiableName = `docker-compose-py-${Date.now()}.yml`
+          }
+          
+          // Create a new File with the identifiable name
+          const renamedFile = new File([file], identifiableName, { type: file.type })
+          formData.append('composeFiles', renamedFile)
+          fileCount++
+          console.log('[v0] [CreateProblem] Adding file:', identifiableName, 'for key:', key)
         }
       })
 
       console.log('[v0] [CreateProblem] Sending with', fileCount, 'files')
-      console.log('[v0] [CreateProblem] Data:', data)
+      
+      // Validate that we have all required files
+      if (fileCount < 3) {
+        setError(`Please upload docker-compose files for all 3 frameworks. Currently have ${fileCount}/3 files.`)
+        setIsLoading(false)
+        return
+      }
 
       const response = await fetch('http://localhost:9000/api/problems', {
         method: 'POST',

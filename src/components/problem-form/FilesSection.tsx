@@ -59,6 +59,12 @@ export function FilesSection({
 
       {isExpanded && (
         <CardContent className="space-y-4">
+          <div className="bg-blue-900/30 border border-blue-700 p-3 rounded">
+            <p className="text-blue-300 text-sm font-semibold">Important</p>
+            <p className="text-blue-200 text-sm mt-1">
+              You must upload docker-compose files for all 3 frameworks before submitting. The form requires all three files to create a problem.
+            </p>
+          </div>
           <p className="text-slate-400 text-sm">
             Select a framework and upload its docker-compose.yml file
           </p>

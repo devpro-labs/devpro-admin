@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProblemRequest } from '@/lib/types'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:9000/api'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9000/api'
 const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'your-secret-key'
 
 export async function POST(request: NextRequest) {
@@ -21,16 +21,9 @@ export async function POST(request: NextRequest) {
     // Parse multipart form data
     const formData = await request.formData()
     const problemJson = formData.get('problem') as string
-    const composeEntries = formData.entries()
-    const filesWithKeys: { key: string; file: File }[] = []
+    const composeFiles = formData.getAll('composeFiles') as File[]
 
-    for (const [key, value] of composeEntries) {
-      if (key.startsWith('composeFiles[') && value instanceof File) {
-        const service = key.replace('composeFiles[', '').replace(']', '')
-        filesWithKeys.push({ key: service, file: value })
-      }
-    }
-
+    console.log('[v0] Received problem data and files:', composeFiles.length)
 
     if (!problemJson) {
       return NextResponse.json(
@@ -54,10 +47,9 @@ export async function POST(request: NextRequest) {
     backendFormData.append('problem', JSON.stringify(data))
 
     // Add files if present
-filesWithKeys.forEach(({ key, file }) => {
-  const renamedFile = new File([file], `${key}.yml`, { type: file.type })
-  backendFormData.append('composeFiles', renamedFile)
-})
+    composeFiles.forEach((file) => {
+      backendFormData.append('composeFiles', file)
+    })
 
     console.log('[v0] Forwarding to backend:', `${BACKEND_URL}/problems`)
 

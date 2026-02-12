@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProblemRequest } from '@/lib/types'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:9000/api'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9000/api'
 const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'your-secret-key'
 
 export async function GET(
@@ -10,6 +10,7 @@ export async function GET(
 ) {
   try {
     const id = params.id
+    console.log('[v0] [GET] Fetching problem:', id, 'from:', `${BACKEND_URL}/problems/${id}`)
 
     const response = await fetch(`${BACKEND_URL}/problems/${id}`, {
       method: 'GET',
@@ -17,6 +18,8 @@ export async function GET(
         'Content-Type': 'application/json',
       },
     })
+
+    console.log('[v0] [GET] Response status:', response.status)
 
     if (!response.ok) {
       return NextResponse.json(
@@ -26,11 +29,12 @@ export async function GET(
     }
 
     const result = await response.json()
+    console.log('[v0] [GET] Problem data retrieved successfully')
     return NextResponse.json(result)
   } catch (error) {
-    console.error('Error fetching problem:', error)
+    console.error('[v0] [GET] Error fetching problem:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
   }
@@ -44,6 +48,7 @@ export async function PUT(
     // Verify API key
     const apiKey = request.headers.get('X-API-Key')
     if (apiKey !== ADMIN_SECRET) {
+      console.log('[v0] [PUT] Unauthorized: Invalid API key')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -51,7 +56,23 @@ export async function PUT(
     }
 
     const id = params.id
-    const data: ProblemRequest = await request.json()
+    console.log('[v0] [PUT] Updating problem:', id)
+
+    // Parse multipart form data
+    const formData = await request.formData()
+    const problemJson = formData.get('problem') as string
+    const composeFiles = formData.getAll('composeFiles') as File[]
+
+    console.log('[v0] [PUT] Received problem data and files:', composeFiles.length)
+
+    if (!problemJson) {
+      return NextResponse.json(
+        { error: 'Missing problem data' },
+        { status: 400 }
+      )
+    }
+
+    const data = JSON.parse(problemJson) as ProblemRequest
 
     // Validate required fields
     if (!data.title || !data.description || !data.entryFile) {
@@ -61,29 +82,41 @@ export async function PUT(
       )
     }
 
+    // Prepare multipart form for backend
+    const backendFormData = new FormData()
+    backendFormData.append('problem', JSON.stringify(data))
+
+    // Add files if present
+    composeFiles.forEach((file) => {
+      backendFormData.append('composeFiles', file)
+    })
+
+    console.log('[v0] [PUT] Forwarding to backend:', `${BACKEND_URL}/problems/${id}`)
+
     // Forward to backend
     const response = await fetch(`${BACKEND_URL}/problems/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+      body: backendFormData,
     })
 
+    console.log('[v0] [PUT] Backend response status:', response.status)
+
     if (!response.ok) {
-      const errorData = await response.json()
+      const errorText = await response.text()
+      console.log('[v0] [PUT] Backend error:', errorText)
       return NextResponse.json(
-        { error: errorData.message || 'Failed to update problem' },
+        { error: errorText || 'Failed to update problem' },
         { status: response.status }
       )
     }
 
     const result = await response.json()
+    console.log('[v0] [PUT] Success:', result)
     return NextResponse.json(result)
   } catch (error) {
-    console.error('Error updating problem:', error)
+    console.error('[v0] [PUT] Error updating problem:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
   }
@@ -97,6 +130,7 @@ export async function DELETE(
     // Verify API key
     const apiKey = request.headers.get('X-API-Key')
     if (apiKey !== ADMIN_SECRET) {
+      console.log('[v0] [DELETE] Unauthorized: Invalid API key')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -104,6 +138,7 @@ export async function DELETE(
     }
 
     const id = params.id
+    console.log('[v0] [DELETE] Deleting problem:', id)
 
     const response = await fetch(`${BACKEND_URL}/problems/${id}`, {
       method: 'DELETE',
@@ -112,18 +147,24 @@ export async function DELETE(
       },
     })
 
+    console.log('[v0] [DELETE] Backend response status:', response.status)
+
     if (!response.ok) {
+      const errorText = await response.text()
+      console.log('[v0] [DELETE] Backend error:', errorText)
       return NextResponse.json(
-        { error: 'Failed to delete problem' },
+        { error: errorText || 'Failed to delete problem' },
         { status: response.status }
       )
     }
 
-    return NextResponse.json({ message: 'Problem deleted successfully' })
+    const result = await response.json()
+    console.log('[v0] [DELETE] Success:', result)
+    return NextResponse.json({ message: 'Problem deleted successfully', data: result })
   } catch (error) {
-    console.error('Error deleting problem:', error)
+    console.error('[v0] [DELETE] Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     )
   }

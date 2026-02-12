@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { ProblemRequest, TestCaseRequest, HTTPMethod } from '@/lib/types'
 import { BasicInfoSection } from './problem-form/BasicInfoSection'
@@ -11,33 +11,59 @@ import { TestCasesSection } from './problem-form/TestCasesSection'
 
 interface CreateProblemFormProps {
   onSubmit: (data: ProblemRequest) => Promise<void>
-  onCancel: () => void
+  onCancel?: () => void
   isLoading?: boolean
+  initialData?: any
+  isUpdateMode?: boolean
 }
 
 export function CreateProblemForm({
   onSubmit,
   onCancel,
   isLoading = false,
+  initialData,
+  isUpdateMode = false,
 }: CreateProblemFormProps) {
   // ==================== FORM STATE ====================
-  const [formData, setFormData] = useState<ProblemRequest>({
-    title: '',
-    description: '',
-    difficulty: 'Medium',
-    tags: [],
-    imageName: {
-      fastapi: '',
-      'express-js': '',
-      'express-ts': '',
-    },
-    entryFile: '',
-    services: [],
-    keys: {},
-    timeLimitSeconds: 30,
-    memoryLimitMB: 256,
-    cpuLimit: 1.0,
-    testCases: [],
+  const [formData, setFormData] = useState<ProblemRequest>(() => {
+    if (initialData && isUpdateMode) {
+      return {
+        title: initialData.title || '',
+        description: initialData.description || '',
+        difficulty: initialData.difficulty || 'Medium',
+        tags: initialData.tags || [],
+        imageName: initialData.imageName || {
+          fastapi: '',
+          'express-js': '',
+          'express-ts': '',
+        },
+        entryFile: initialData.entryFile || '',
+        services: initialData.services || [],
+        keys: initialData.keys || {},
+        timeLimitSeconds: initialData.timeLimitSeconds || 30,
+        memoryLimitMB: initialData.memoryLimitMB || 256,
+        cpuLimit: initialData.cpuLimit || 1.0,
+        testCases: initialData.testCases || [],
+      }
+    }
+    return {
+      title: '',
+      description: '',
+      difficulty: 'Medium',
+      tags: [],
+      imageName: {
+        fastapi: '',
+        'express-js': '',
+        'express-ts': '',
+      },
+      entryFile: '',
+      services: [],
+      keys: {},
+      timeLimitSeconds: 30,
+      memoryLimitMB: 256,
+      cpuLimit: 1.0,
+      testCases: [],
+    }
   })
 
   // ==================== UI STATE ====================
@@ -76,6 +102,26 @@ export function CreateProblemForm({
     'py-fastapi': [],
   })
   const [uploading, setUploading] = useState(false)
+
+  // ==================== LOAD INITIAL FILES ====================
+  useEffect(() => {
+    if (isUpdateMode && initialData?.composeFile) {
+      const urlMap: Record<string, string[]> = {
+        'js-express': [],
+        'ts-express': [],
+        'py-fastapi': [],
+      }
+      
+      Object.entries(initialData.composeFile).forEach(([key, url]) => {
+        if (key in urlMap && typeof url === 'string') {
+          urlMap[key] = [url]
+        }
+      })
+      
+      console.log('[v0] [Form] Loaded initial compose files:', urlMap)
+      setComposeFileUrls(urlMap)
+    }
+  }, [isUpdateMode, initialData])
 
   // ==================== SERVICES STATE ====================
   const [keyInput, setKeyInput] = useState({ key: '', value: '' })
@@ -350,16 +396,18 @@ export function CreateProblemForm({
           disabled={isLoading}
           className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
         >
-          {isLoading ? 'Creating...' : 'Create Problem'}
+          {isLoading ? (isUpdateMode ? 'Updating...' : 'Creating...') : (isUpdateMode ? 'Update Problem' : 'Create Problem')}
         </Button>
-        <Button
-          type="button"
-          onClick={onCancel}
-          variant="outline"
-          className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800 bg-transparent"
-        >
-          Cancel
-        </Button>
+        {onCancel && (
+          <Button
+            type="button"
+            onClick={onCancel}
+            variant="outline"
+            className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800 bg-transparent"
+          >
+            Cancel
+          </Button>
+        )}
       </div>
     </form>
   )
