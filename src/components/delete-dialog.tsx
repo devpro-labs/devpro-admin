@@ -49,15 +49,20 @@ export function DeleteDialog({
           >
             Cancel
           </Button>
+
           <Button
             type="button"
             onClick={onConfirm}
             disabled={isLoading}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white"
           >
+            {isLoading && (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            )}
             {isLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </CardContent>
+
       </Card>
     </div>
   )

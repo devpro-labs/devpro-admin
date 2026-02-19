@@ -40,8 +40,9 @@ const Dashboard = ({
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleCreateProblem = () => {
-    router.push("/create-problem")
-  }
+  router.push("/create-problem")
+}
+
 
   const handleEditProblem = (problem: Problem) => {
     console.log('[v0] [Dashboard] Navigating to edit problem:', problem.id)
@@ -119,7 +120,7 @@ const Dashboard = ({
 
           <div className="flex gap-3">
             <Button
-              onClick={handleCreate}
+              onClick={handleCreateProblem}
               size="lg"
               className="bg-indigo-600 hover:bg-indigo-500 text-white"
             >

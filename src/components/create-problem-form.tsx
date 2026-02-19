@@ -111,13 +111,13 @@ export function CreateProblemForm({
         'ts-express': [],
         'py-fastapi': [],
       }
-      
+
       Object.entries(initialData.composeFile).forEach(([key, url]) => {
         if (key in urlMap && typeof url === 'string') {
           urlMap[key] = [url]
         }
       })
-      
+
       console.log('[v0] [Form] Loaded initial compose files:', urlMap)
       setComposeFileUrls(urlMap)
     }
@@ -394,10 +394,20 @@ export function CreateProblemForm({
         <Button
           type="submit"
           disabled={isLoading}
-          className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
+          className="flex items-center justify-center gap-2 flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
         >
-          {isLoading ? (isUpdateMode ? 'Updating...' : 'Creating...') : (isUpdateMode ? 'Update Problem' : 'Create Problem')}
+          {isLoading && (
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          )}
+          {isLoading
+            ? isUpdateMode
+              ? 'Updating...'
+              : 'Creating...'
+            : isUpdateMode
+              ? 'Update Problem'
+              : 'Create Problem'}
         </Button>
+
         {onCancel && (
           <Button
             type="button"
@@ -409,6 +419,7 @@ export function CreateProblemForm({
           </Button>
         )}
       </div>
+
     </form>
   )
 }

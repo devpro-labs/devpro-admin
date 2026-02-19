@@ -4,22 +4,13 @@ import { ProblemRequest } from '@/lib/types'
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9000/api'
 const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'your-secret-key'
 
+/* ========================== GET ========================== */
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = params.id
-    console.log('[v0] [GET] Fetching problem:', id, 'from:', `${BACKEND_URL}/problems/${id}`)
-
-    const response = await fetch(`${BACKEND_URL}/problems/${id}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    console.log('[v0] [GET] Response status:', response.status)
+    const response = await fetch(`${BACKEND_URL}/problems/${params.id}`)
 
     if (!response.ok) {
       return NextResponse.json(
@@ -29,41 +20,33 @@ export async function GET(
     }
 
     const result = await response.json()
-    console.log('[v0] [GET] Problem data retrieved successfully')
     return NextResponse.json(result)
   } catch (error) {
-    console.error('[v0] [GET] Error fetching problem:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: 'Failed to fetch problem' },
       { status: 500 }
     )
   }
 }
 
+/* ========================== PUT ========================== */
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Verify API key
     const apiKey = request.headers.get('X-API-Key')
+
     if (apiKey !== ADMIN_SECRET) {
-      console.log('[v0] [PUT] Unauthorized: Invalid API key')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const id = params.id
-    console.log('[v0] [PUT] Updating problem:', id)
-
-    // Parse multipart form data
     const formData = await request.formData()
     const problemJson = formData.get('problem') as string
     const composeFiles = formData.getAll('composeFiles') as File[]
-
-    console.log('[v0] [PUT] Received problem data and files:', composeFiles.length)
 
     if (!problemJson) {
       return NextResponse.json(
@@ -72,99 +55,86 @@ export async function PUT(
       )
     }
 
-    const data = JSON.parse(problemJson) as ProblemRequest
+    const parsed: ProblemRequest = JSON.parse(problemJson)
 
-    // Validate required fields
-    if (!data.title || !data.description || !data.entryFile) {
+    if (!parsed.title || !parsed.description || !parsed.entryFile) {
       return NextResponse.json(
-        { error: 'Missing required fields: title, description, entryFile' },
+        { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Prepare multipart form for backend
+    // Forward to Spring Boot
     const backendFormData = new FormData()
-    backendFormData.append('problem', JSON.stringify(data))
+    backendFormData.append('problem', JSON.stringify(parsed))
 
-    // Add files if present
     composeFiles.forEach((file) => {
       backendFormData.append('composeFiles', file)
     })
 
-    console.log('[v0] [PUT] Forwarding to backend:', `${BACKEND_URL}/problems/${id}`)
+    const response = await fetch(
+      `${BACKEND_URL}/problems/${params.id}`,
+      {
+        method: 'PUT',
+        body: backendFormData,
+      }
+    )
 
-    // Forward to backend
-    const response = await fetch(`${BACKEND_URL}/problems/${id}`, {
-      method: 'PUT',
-      body: backendFormData,
-    })
-
-    console.log('[v0] [PUT] Backend response status:', response.status)
+    const text = await response.text()
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.log('[v0] [PUT] Backend error:', errorText)
       return NextResponse.json(
-        { error: errorText || 'Failed to update problem' },
+        { error: text || 'Backend update failed' },
         { status: response.status }
       )
     }
 
-    const result = await response.json()
-    console.log('[v0] [PUT] Success:', result)
-    return NextResponse.json(result)
+    return NextResponse.json(JSON.parse(text))
   } catch (error) {
-    console.error('[v0] [PUT] Error updating problem:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: 'Update failed' },
       { status: 500 }
     )
   }
 }
 
+/* ========================== DELETE ========================== */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Verify API key
     const apiKey = request.headers.get('X-API-Key')
+
     if (apiKey !== ADMIN_SECRET) {
-      console.log('[v0] [DELETE] Unauthorized: Invalid API key')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const id = params.id
-    console.log('[v0] [DELETE] Deleting problem:', id)
+    const response = await fetch(
+      `${BACKEND_URL}/problems/${params.id}`,
+      {
+        method: 'DELETE',
+      }
+    )
 
-    const response = await fetch(`${BACKEND_URL}/problems/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    console.log('[v0] [DELETE] Backend response status:', response.status)
+    const text = await response.text()
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.log('[v0] [DELETE] Backend error:', errorText)
       return NextResponse.json(
-        { error: errorText || 'Failed to delete problem' },
+        { error: text || 'Delete failed' },
         { status: response.status }
       )
     }
 
-    const result = await response.json()
-    console.log('[v0] [DELETE] Success:', result)
-    return NextResponse.json({ message: 'Problem deleted successfully', data: result })
+    return NextResponse.json({
+      message: 'Problem deleted successfully',
+    })
   } catch (error) {
-    console.error('[v0] [DELETE] Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: 'Delete failed' },
       { status: 500 }
     )
   }

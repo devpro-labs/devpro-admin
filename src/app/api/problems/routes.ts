@@ -8,22 +8,15 @@ export async function POST(request: NextRequest) {
   try {
     console.log('[v0] POST /api/problems called')
 
-    // Verify API key
     const apiKey = request.headers.get('X-API-Key')
     if (apiKey !== ADMIN_SECRET) {
-      console.log('[v0] Unauthorized: Invalid API key')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Parse multipart form data
-    const formData = await request.formData()
-    const problemJson = formData.get('problem') as string
-    const composeFiles = formData.getAll('composeFiles') as File[]
+    const incomingFormData = await request.formData()
 
-    console.log('[v0] Received problem data and files:', composeFiles.length)
+    const problemJson = incomingFormData.get('problem')
+    const composeFiles = incomingFormData.getAll('composeFiles') as File[]
 
     if (!problemJson) {
       return NextResponse.json(
@@ -32,50 +25,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data = JSON.parse(problemJson) as ProblemRequest
-
-    // Validate required fields
-    if (!data.title || !data.description || !data.entryFile) {
-      return NextResponse.json(
-        { error: 'Missing required fields: title, description, entryFile' },
-        { status: 400 }
-      )
-    }
-
-    // Prepare multipart form for backend
+    // Forward EXACT same multipart to backend
     const backendFormData = new FormData()
-    backendFormData.append('problem', JSON.stringify(data))
+    backendFormData.append('problem', problemJson as string)
 
-    // Add files if present
     composeFiles.forEach((file) => {
-      backendFormData.append('composeFiles', file)
+      backendFormData.append('composeFiles', file, file.name)
     })
 
-    console.log('[v0] Forwarding to backend:', `${BACKEND_URL}/problems`)
-
-    // Forward to backend
     const response = await fetch(`${BACKEND_URL}/problems`, {
       method: 'POST',
       body: backendFormData,
     })
 
-    console.log('[v0] Backend response status:', response.status)
+    const result = await response.text()
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.log('[v0] Backend error:', errorText)
-      return NextResponse.json(
-        { error: errorText || 'Failed to create problem' },
-        { status: response.status }
-      )
-    }
+    return new NextResponse(result, {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' },
+    })
 
-    const result = await response.json()
-    return NextResponse.json(result, { status: 201 })
   } catch (error) {
     console.error('[v0] Error creating problem:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
